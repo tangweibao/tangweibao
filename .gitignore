@@ -1,0 +1,5 @@
+# local preview screenshots / recordings used during design reviews
+preview/
+
+# macOS
+.DS_Store
