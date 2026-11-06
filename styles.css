@@ -97,7 +97,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid #2f7ff7; outline-offs
 /* Viewer context inside the site header (replaces the old in-screen header row) */
 .viewer-nav { display: none; min-width: 0; align-items: center; column-gap: clamp(10px, 1.3vw, 18px); }
 .viewer-nav-divider { flex: 0 0 auto; width: 1px; height: 18px; background: rgba(255, 255, 255, .18); }
-.viewer-back .viewer-back-arrow { font-size: 15px; }
+.viewer-back .viewer-back-arrow { flex: 0 0 auto; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s var(--ease); }
+.viewer-back:hover .viewer-back-arrow { transform: translateX(-3px); }
 .viewer-back [data-viewer-back-label] { font-size: 14px; }
 body[data-screen="viewer"] .viewer-nav { display: flex; }
 body[data-screen="viewer"] .header-contact { display: none; }
@@ -343,7 +344,7 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-screen { --viewer-bg: #111214; grid-template-columns: minmax(0, 1fr) clamp(126px, 10vw, 164px); grid-template-rows: minmax(0, 1fr); }
 .viewer-title-wrap h1 { font-family: "Arial Narrow", sans-serif; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
 .viewer-count b { font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif; font-size: 20px; font-weight: 500; }
-.artwork-frame { border-radius: 0; background: #0c0d0e; box-shadow: none; }
+.artwork-frame { border-radius: 0; background: transparent; box-shadow: none; }
 .thumbnail-dock { background: #111214; border-left-color: rgba(255,255,255,.07); padding: 14px 10px; }
 .thumbnail-rail { gap: 6px; }
 .thumbnail { width: 100%; height: auto; aspect-ratio: 16 / 9; border: 0; border-radius: 0; opacity: .38; transition: opacity .3s, box-shadow .3s; }
@@ -476,7 +477,7 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
   .viewer-screen { grid-template-columns: minmax(0, 1fr) 72px; grid-template-rows: minmax(0, 1fr); }
   .viewer-back [data-viewer-back-label] { display: none; }
   .viewer-back { gap: 4px; }
-  .viewer-back .viewer-back-arrow { font-size: 16px; }
+  .viewer-back .viewer-back-arrow { width: 15px; height: 15px; }
   .viewer-nav { column-gap: 8px; }
   .viewer-title-wrap p { display: none; }
   .viewer-count { gap: 4px; }
