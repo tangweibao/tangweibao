@@ -17,6 +17,15 @@
         <span class="brand-text"><b>TANG</b><small>PRODUCT DESIGNER</small></span>
       </button>
 
+      <div class="viewer-nav" data-viewer-nav>
+        <button class="viewer-back" type="button" data-viewer-back aria-label="返回首页"><span>←</span> <span data-viewer-back-label>返回首页</span></button>
+        <div class="viewer-title-wrap">
+          <p data-viewer-company></p>
+          <h1 id="viewer-title" data-viewer-title tabindex="-1"></h1>
+        </div>
+        <div class="viewer-count" role="status" aria-live="polite" aria-atomic="true"><b data-current-count>01</b><span>/</span><span data-total-count>01</span></div>
+      </div>
+
       <div class="header-contact" aria-label="联系方式">
         <a href="tel:+8618911300923"><span>TEL</span>18911300923</a>
         <i aria-hidden="true">/</i>
@@ -112,15 +121,6 @@
       </section>
 
       <section class="screen viewer-screen" data-screen="viewer" aria-labelledby="viewer-title" hidden>
-        <header class="viewer-header">
-          <button class="viewer-back" type="button" data-viewer-back><span>←</span> <span data-viewer-back-label>返回首页</span></button>
-          <div class="viewer-title-wrap">
-            <p data-viewer-company></p>
-            <h1 id="viewer-title" data-viewer-title tabindex="-1"></h1>
-          </div>
-          <div class="viewer-count" role="status" aria-live="polite" aria-atomic="true"><b data-current-count>01</b><span>/</span><span data-total-count>01</span></div>
-        </header>
-
         <div class="viewer-stage" data-viewer-stage>
           <div class="artwork-frame" data-artwork-frame>
             <img data-main-artwork alt="" draggable="false">

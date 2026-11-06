@@ -337,6 +337,7 @@ function setActiveScreen(screenName) {
   const changed = state.screen !== screenName;
   if (changed) setContactCard(false);
   state.screen = screenName;
+  document.body.dataset.screen = screenName;
   if (changed && routeHydrated) window.requestAnimationFrame(() => focusScreenHeading(screenName));
   elements.screens.forEach((screen) => {
     const active = screen.dataset.screen === screenName;
@@ -356,7 +357,9 @@ function pushRoute(hash) {
 
 function updateViewerBackLabel() {
   if (!elements.viewerBackLabel) return;
-  elements.viewerBackLabel.textContent = state.viewerOrigin === "projects" ? "返回项目" : "返回首页";
+  const label = state.viewerOrigin === "projects" ? "返回项目" : "返回首页";
+  elements.viewerBackLabel.textContent = label;
+  document.querySelector("[data-viewer-back]")?.setAttribute("aria-label", label);
 }
 
 function goHome(updateHash = true) {
