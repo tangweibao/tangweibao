@@ -713,6 +713,7 @@ function clearViewerExit() {
   if (!viewerExit) return;
   viewerExit.animation?.cancel();
   viewerExit.overlay.remove();
+  viewerExit.card?.classList.remove("is-returning");
   elements.homeScreen.classList.remove("is-scene-revealing");
   elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
   viewerExit = null;
@@ -740,6 +741,9 @@ function startViewerExit() {
   const visible = Math.min(cardRight, stream.viewport) - Math.max(cardLeft, 0);
   if (visible < cardItem.width * 0.5) return false;
 
+  // release hover and pin the cover's resting look before cloning it, so the
+  // clone copies the same appearance the card will have at handoff
+  card.classList.add("is-returning");
   const coverImage = card.querySelector("img");
   const coverSource = coverImage?.currentSrc || coverImage?.src;
   const frame = elements.artworkFrame.getBoundingClientRect();
@@ -770,16 +774,24 @@ function startViewerExit() {
   overlay.style.borderRadius = "0px";
   document.body.appendChild(overlay);
 
-  card.classList.add("is-returning");
   elements.viewerScreen.classList.add("is-scene-shrinking", "is-dock-hidden");
   elements.homeScreen.classList.add("is-scene-revealing");
-  const entry = { overlay, animation: null };
+  const entry = { overlay, animation: null, card };
   viewerExit = entry;
   goHome(false);
   history.replaceState(null, "", "#home");
 
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     if (!overlay.isConnected) return;
+    // the home screen is display:none while the viewer is open, so computed
+    // transforms on the card read as "none" before goHome; copy the cover's
+    // real transform/filter now that home is visible, otherwise the clone's
+    // cover is unzoomed and pops when the real card appears at handoff
+    if (coverImage) {
+      const coverStyle = window.getComputedStyle(coverImage);
+      cover.style.transform = coverStyle.transform;
+      cover.style.filter = coverStyle.filter;
+    }
     // target the card's default (non-hover) rectangle; the .is-returning class
     // has already released any hover lift with the normal 0.7s transition, so
     // the clone lands where the card will settle (no snap on handoff)

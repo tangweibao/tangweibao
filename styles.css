@@ -463,6 +463,11 @@ body[data-screen="viewer"] .viewer-nav { animation: viewer-nav-in .62s var(--eas
 .group-projects:hover .stream-project:not(:hover) { opacity: .32; filter: brightness(.55); }
 .stream-project:hover, .stream-project:focus-visible { z-index: 4; transform: translateY(-6px); box-shadow: 0 26px 60px rgba(0, 0, 0, .5); }
 .stream-project.is-returning { transform: translateY(0) !important; }
+/* keep the cover at its resting look while the clone shrinks, so the clone's
+   copied cover matches the real card at handoff (hover is re-applied with the
+   normal 1s image transition afterwards) */
+.stream-project.is-returning img { transform: scale(1.08) translateX(var(--pointer-shift)) !important; filter: contrast(1.12) brightness(.68) !important; }
+.stream-project.is-returning::after { opacity: .76 !important; }
 .stream-project img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: contrast(1.12) brightness(.68); transform: scale(1.08) translateX(var(--pointer-shift)); transition: filter .65s, transform 1s var(--ease); }
 .stream-project:hover img, .stream-project:focus-visible img { filter: contrast(1.04) brightness(.88); transform: scale(1.01) translateX(0); }
 .stream-project::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,9,10,.94), transparent 58%); opacity: .76; transition: opacity .55s; }
