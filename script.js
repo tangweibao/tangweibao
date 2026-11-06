@@ -133,6 +133,10 @@ const elements = {
   loader: document.querySelector("[data-image-loader]"),
   thumbnailRail: document.querySelector("[data-thumbnail-rail]"),
   artworkFrame: document.querySelector("[data-artwork-frame]"),
+  viewerScreen: document.querySelector('[data-screen="viewer"]'),
+  fullscreenToggle: document.querySelector("[data-fullscreen-toggle]"),
+  fullscreenCurrent: document.querySelector("[data-fullscreen-current]"),
+  fullscreenTotal: document.querySelector("[data-fullscreen-total]"),
   viewerStage: document.querySelector("[data-viewer-stage]"),
   streamShell: document.querySelector("[data-stream-shell]"),
   streamProgress: document.querySelector("[data-stream-progress]"),
@@ -140,6 +144,52 @@ const elements = {
 };
 
 const currentExperience = () => experiences[state.experienceId];
+
+function isViewerFullscreen() {
+  return document.fullscreenElement === elements.viewerScreen || elements.viewerScreen.classList.contains("is-pseudo-fullscreen");
+}
+
+function syncFullscreenUI() {
+  const active = isViewerFullscreen();
+  elements.viewerScreen.classList.toggle("is-fullscreen", active);
+  elements.fullscreenToggle.setAttribute("aria-pressed", String(active));
+  const label = active ? "退出全屏" : "全屏查看";
+  elements.fullscreenToggle.setAttribute("aria-label", label);
+  elements.fullscreenToggle.setAttribute("title", label);
+  window.requestAnimationFrame(() => {
+    sizeArtworkFrame();
+    updateRailMask();
+  });
+}
+
+function exitPseudoFullscreen() {
+  elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
+  syncFullscreenUI();
+}
+
+function toggleViewerFullscreen() {
+  if (state.screen !== "viewer") return;
+  if (isViewerFullscreen()) {
+    if (document.fullscreenElement) document.exitFullscreen().catch(exitPseudoFullscreen);
+    else exitPseudoFullscreen();
+    return;
+  }
+  const request = elements.viewerScreen.requestFullscreen;
+  if (typeof request === "function") {
+    request.call(elements.viewerScreen).catch(() => {
+      elements.viewerScreen.classList.add("is-pseudo-fullscreen");
+      syncFullscreenUI();
+    });
+  } else {
+    elements.viewerScreen.classList.add("is-pseudo-fullscreen");
+    syncFullscreenUI();
+  }
+}
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
+  syncFullscreenUI();
+});
 
 function updateRailMask() {
   const rail = elements.thumbnailRail;
@@ -295,6 +345,7 @@ function renderViewer() {
   elements.viewerCompany.textContent = `${experience.company} · ${experience.period}`;
   elements.viewerTitle.textContent = project.name;
   elements.totalCount.textContent = pad(project.slides.length);
+  elements.fullscreenTotal.textContent = pad(project.slides.length);
   elements.thumbnailRail.innerHTML = project.slides.map((slide, index) => `
     <button class="thumbnail${index === state.slideIndex ? " is-current" : ""}" type="button" data-slide-index="${index}" role="option" aria-selected="${index === state.slideIndex}" tabindex="${index === state.slideIndex ? 0 : -1}" aria-label="查看第 ${index + 1} 页">
       <img src="${slide.thumb}" alt="" loading="lazy">
@@ -409,6 +460,7 @@ function showSlide(index, scrollThumbnail = true) {
   state.slideIndex = (index + project.slides.length) % project.slides.length;
   const slide = project.slides[state.slideIndex];
   elements.currentCount.textContent = pad(state.slideIndex + 1);
+  elements.fullscreenCurrent.textContent = pad(state.slideIndex + 1);
 
   if (direction === 0) {
     resetArtworkLayers();
@@ -452,6 +504,11 @@ function setActiveScreen(screenName) {
   const changed = state.screen !== screenName;
   if (changed) setContactCard(false);
   if (screenName !== "viewer") clearViewerEntry();
+  if (screenName !== "viewer" && isViewerFullscreen()) {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
+    syncFullscreenUI();
+  }
   state.screen = screenName;
   document.body.dataset.screen = screenName;
   if (changed && routeHydrated) window.requestAnimationFrame(() => focusScreenHeading(screenName));
@@ -675,11 +732,13 @@ document.addEventListener("click", (event) => {
   const projectTrigger = event.target.closest("[data-project]");
   const thumbnailTrigger = event.target.closest("[data-slide-index]");
   const viewerBack = event.target.closest("[data-viewer-back]");
+  const fullscreenTrigger = event.target.closest("[data-fullscreen-toggle]");
 
   if (homeTrigger) goHome();
   else if (homeProjectTrigger) openHomeProject(homeProjectTrigger.dataset.homeExperience, homeProjectTrigger.dataset.homeProject, homeProjectTrigger);
   else if (projectTrigger) openProject(projectTrigger.dataset.project);
   else if (thumbnailTrigger) showSlide(Number(thumbnailTrigger.dataset.slideIndex));
+  else if (fullscreenTrigger) toggleViewerFullscreen();
   else if (viewerBack) leaveViewer();
 });
 
@@ -698,7 +757,14 @@ document.addEventListener("keydown", (event) => {
   if (state.screen === "viewer") {
     if (event.key === "ArrowDown" || event.key === "PageDown") showSlide(state.slideIndex + 1);
     if (event.key === "ArrowUp" || event.key === "PageUp") showSlide(state.slideIndex - 1);
-    if (event.key === "Escape") leaveViewer();
+    if (event.key === "Escape") {
+      if (isViewerFullscreen()) {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else exitPseudoFullscreen();
+        return;
+      }
+      leaveViewer();
+    }
   }
 });
 

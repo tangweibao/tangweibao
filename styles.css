@@ -240,8 +240,24 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-count { margin-left: auto; flex: 0 0 auto; display: flex; align-items: baseline; gap: 6px; color: #7d8794; font-size: 10px; white-space: nowrap; }
 .viewer-count b { color: #f4f5f6; font-size: 18px; }
 
-.viewer-stage { grid-column: 1; grid-row: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 18px clamp(16px, 2.2vw, 34px); }
+.viewer-stage { position: relative; grid-column: 1; grid-row: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 18px clamp(16px, 2.2vw, 34px); }
 .artwork-frame { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border-radius: 5px; background: #151b22; box-shadow: 0 20px 55px rgba(0, 0, 0, .28); touch-action: none; }
+/* Fullscreen viewing */
+.fullscreen-toggle { position: absolute; z-index: 5; top: 14px; right: 14px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid rgba(255, 255, 255, .16); border-radius: 50%; color: #dfe4ea; background: rgba(12, 13, 15, .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: pointer; transition: background .2s, border-color .2s, opacity .2s; }
+.fullscreen-toggle:hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .42); }
+.fullscreen-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.fullscreen-toggle .icon-collapse { display: none; }
+.viewer-screen.is-fullscreen .fullscreen-toggle .icon-expand { display: none; }
+.viewer-screen.is-fullscreen .fullscreen-toggle .icon-collapse { display: block; }
+.fullscreen-count { display: none; position: absolute; z-index: 4; left: 50%; bottom: 20px; transform: translateX(-50%); align-items: baseline; gap: 6px; color: #7d8794; font-size: 10px; letter-spacing: .16em; }
+.fullscreen-count b { color: #f4f5f6; font-size: 15px; font-weight: 500; }
+.viewer-screen.is-fullscreen .fullscreen-count { display: flex; }
+.viewer-screen.is-fullscreen .thumbnail-dock { display: none; }
+.viewer-screen.is-fullscreen .viewer-stage { padding: 0; }
+.viewer-screen:fullscreen { padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
+.viewer-screen.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 90; padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
+.viewer-screen.is-fullscreen .fullscreen-toggle { top: 20px; right: 20px; width: 40px; height: 40px; background: rgba(18, 20, 23, .72); }
+
 .artwork-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; opacity: 1; }
 .artwork-frame [data-main-artwork] { z-index: 1; }
 .artwork-ghost { z-index: 2; visibility: hidden; }
