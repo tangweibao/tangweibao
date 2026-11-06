@@ -36,6 +36,7 @@ const experiences = {
     period: "2022 — NOW",
     company: "抖音",
     mark: "d",
+    logo: "assets/marks/douyin.webp",
     accent: "#20c7d9",
     markBg: "#11151b",
     role: "平台产品设计专家 & AI 全栈",
@@ -60,6 +61,7 @@ const experiences = {
     period: "2020 — 2022",
     company: "京东零售",
     mark: "JD",
+    logo: "assets/marks/jd.webp",
     accent: "#ed2630",
     markBg: "#ed2630",
     role: "资深体验设计师",
@@ -83,6 +85,7 @@ const experiences = {
     period: "2016 — 2020",
     company: "金山办公",
     mark: "W",
+    logo: "assets/marks/kingsoft.webp",
     accent: "#ff5a52",
     markBg: "linear-gradient(145deg, #ff784e, #f33d5d)",
     role: "高级 UI 设计师",
@@ -108,7 +111,8 @@ const state = {
   screen: "home",
   experienceId: null,
   projectId: null,
-  slideIndex: 0
+  slideIndex: 0,
+  viewerOrigin: "home"
 };
 
 const elements = {
@@ -129,7 +133,8 @@ const elements = {
   thumbnailRail: document.querySelector("[data-thumbnail-rail]"),
   artworkFrame: document.querySelector("[data-artwork-frame]"),
   streamShell: document.querySelector("[data-stream-shell]"),
-  streamProgress: document.querySelector("[data-stream-progress]")
+  streamProgress: document.querySelector("[data-stream-progress]"),
+  viewerBackLabel: document.querySelector("[data-viewer-back-label]")
 };
 
 const currentExperience = () => experiences[state.experienceId];
@@ -147,10 +152,23 @@ elements.thumbnailRail.addEventListener("scroll", updateRailMask, { passive: tru
 const contactToggle = document.querySelector("[data-contact-toggle]");
 const contactCard = document.querySelector("[data-contact-card]");
 
-function setContactCard(open) {
+function contactFocusable() {
+  return [...contactCard.querySelectorAll("a, button")].filter((element) => element.offsetParent !== null);
+}
+
+function setContactCard(open, restoreFocus = false) {
   if (!contactToggle || !contactCard) return;
+  const isOpen = contactCard.classList.contains("is-open");
+  if (open === isOpen) return;
   contactCard.classList.toggle("is-open", open);
   contactToggle.setAttribute("aria-expanded", String(open));
+  if (open) {
+    // the card fades in from visibility:hidden, so focus has to wait for the
+    // next task or the browser refuses it
+    window.setTimeout(() => contactFocusable()[0]?.focus({ preventScroll: true }), 0);
+  } else if (restoreFocus) {
+    contactToggle.focus({ preventScroll: true });
+  }
 }
 
 contactToggle.addEventListener("click", () => {
@@ -158,7 +176,22 @@ contactToggle.addEventListener("click", () => {
 });
 
 contactCard.addEventListener("click", (event) => {
-  if (event.target.closest("[data-contact-close]")) setContactCard(false);
+  if (event.target.closest("[data-contact-close]")) setContactCard(false, true);
+});
+
+contactCard.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab") return;
+  const focusable = contactFocusable();
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  } else if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  }
 });
 
 document.addEventListener("click", (event) => {
@@ -169,15 +202,15 @@ document.addEventListener("click", (event) => {
 const currentProject = () => currentExperience()?.projects.find((project) => project.id === state.projectId);
 
 function renderTimeline() {
-  elements.timeline.innerHTML = Object.values(experiences).map((experience, experienceIndex) => `
+  elements.timeline.innerHTML = Object.values(experiences).map((experience) => `
     <section class="experience-group" style="--accent:${experience.accent};--mark-bg:${experience.markBg}">
       <header class="group-meta">
-        <span class="group-index">${pad(experienceIndex + 1)}</span>
-        <span class="group-mark" aria-hidden="true">${experience.mark}</span>
+        <span class="group-index">${experience.period}</span>
+        <span class="group-mark${experience.logo ? " has-logo" : ""}" aria-hidden="true">${experience.logo ? `<img src="${experience.logo}" alt="" loading="lazy" decoding="async">` : experience.mark}</span>
         <b class="group-company">${experience.company}</b>
         <span class="group-copy">
           <strong>${experience.role}</strong>
-          <small>${experience.period} · ${experience.meta}</small>
+          <small>${experience.meta}</small>
         </span>
       </header>
       <div class="group-projects">
@@ -200,7 +233,10 @@ function renderProjects() {
   const experience = currentExperience();
   if (!experience) return;
 
-  elements.projectsMark.textContent = experience.mark;
+  elements.projectsMark.classList.toggle("has-logo", Boolean(experience.logo));
+  elements.projectsMark.innerHTML = experience.logo
+    ? `<img src="${experience.logo}" alt="" decoding="async">`
+    : experience.mark;
   elements.projectsMark.style.setProperty("--accent", experience.accent);
   elements.projectsMark.style.setProperty("--mark-bg", experience.markBg);
   elements.projectsPeriod.textContent = experience.period;
@@ -230,7 +266,7 @@ function renderViewer() {
   elements.viewerTitle.textContent = project.name;
   elements.totalCount.textContent = pad(project.slides.length);
   elements.thumbnailRail.innerHTML = project.slides.map((slide, index) => `
-    <button class="thumbnail${index === state.slideIndex ? " is-current" : ""}" type="button" data-slide-index="${index}" role="option" aria-selected="${index === state.slideIndex}" aria-label="查看第 ${index + 1} 页">
+    <button class="thumbnail${index === state.slideIndex ? " is-current" : ""}" type="button" data-slide-index="${index}" role="option" aria-selected="${index === state.slideIndex}" tabindex="${index === state.slideIndex ? 0 : -1}" aria-label="查看第 ${index + 1} 页">
       <img src="${slide.thumb}" alt="" loading="lazy">
       <b>${pad(index + 1)}</b>
     </button>
@@ -271,10 +307,12 @@ function showSlide(index, scrollThumbnail = true) {
     const isCurrent = thumbnailIndex === state.slideIndex;
     thumbnail.classList.toggle("is-current", isCurrent);
     thumbnail.setAttribute("aria-selected", String(isCurrent));
+    thumbnail.tabIndex = isCurrent ? 0 : -1;
   });
 
   const activeThumbnail = thumbnails[state.slideIndex];
   if (scrollThumbnail && activeThumbnail) activeThumbnail.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  if (document.activeElement?.closest(".thumbnail-rail") && activeThumbnail) activeThumbnail.focus({ preventScroll: true });
 
   [-1, 1].forEach((offset) => {
     const preloadIndex = (state.slideIndex + offset + project.slides.length) % project.slides.length;
@@ -283,8 +321,23 @@ function showSlide(index, scrollThumbnail = true) {
   });
 }
 
+const screenHeadings = {
+  home: "#home-title",
+  projects: "#projects-title",
+  viewer: "#viewer-title"
+};
+let routeHydrated = false;
+
+function focusScreenHeading(screenName) {
+  const heading = document.querySelector(screenHeadings[screenName] || "");
+  if (heading) heading.focus({ preventScroll: true });
+}
+
 function setActiveScreen(screenName) {
+  const changed = state.screen !== screenName;
+  if (changed) setContactCard(false);
   state.screen = screenName;
+  if (changed && routeHydrated) window.requestAnimationFrame(() => focusScreenHeading(screenName));
   elements.screens.forEach((screen) => {
     const active = screen.dataset.screen === screenName;
     if (active) {
@@ -296,16 +349,31 @@ function setActiveScreen(screenName) {
   });
 }
 
+function pushRoute(hash) {
+  if (location.hash === hash) return;
+  history.pushState(null, "", hash);
+}
+
+function updateViewerBackLabel() {
+  if (!elements.viewerBackLabel) return;
+  elements.viewerBackLabel.textContent = state.viewerOrigin === "projects" ? "返回项目" : "返回首页";
+}
+
 function goHome(updateHash = true) {
   state.experienceId = null;
   state.projectId = null;
   state.slideIndex = 0;
+  state.viewerOrigin = "home";
   setActiveScreen("home");
   scheduleStreamMeasure(520);
-  if (updateHash) history.pushState(null, "", "#home");
+  if (updateHash) pushRoute("#home");
 }
 
 function leaveViewer() {
+  if (state.viewerOrigin === "projects" && state.experienceId && state.screen === "viewer") {
+    history.back();
+    return;
+  }
   goHome(false);
   history.replaceState(null, "", "#home");
 }
@@ -317,17 +385,19 @@ function openExperience(experienceId, updateHash = true) {
   state.slideIndex = 0;
   renderProjects();
   setActiveScreen("projects");
-  if (updateHash) history.pushState(null, "", `#experience/${experienceId}`);
+  if (updateHash) pushRoute(`#experience/${experienceId}`);
 }
 
 function openProject(projectId, updateHash = true) {
   const project = currentExperience()?.projects.find((item) => item.id === projectId);
   if (!project || project.disabled) return;
+  state.viewerOrigin = state.screen === "projects" ? "projects" : "home";
   state.projectId = projectId;
   state.slideIndex = 0;
   renderViewer();
+  updateViewerBackLabel();
   setActiveScreen("viewer");
-  if (updateHash) history.pushState(null, "", `#project/${state.experienceId}/${projectId}`);
+  if (updateHash) pushRoute(`#project/${state.experienceId}/${projectId}`);
 }
 
 function openHomeProject(experienceId, projectId) {
@@ -345,12 +415,25 @@ function openHomeProject(experienceId, projectId) {
 function handleRoute() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   if (parts[0] === "project" && parts[1] && parts[2]) {
+    const experience = experiences[parts[1]];
+    const project = experience?.projects.find((item) => item.id === parts[2]);
+    if (!experience || !project || project.disabled) {
+      if (experience) {
+        openExperience(parts[1], false);
+        history.replaceState(null, "", `#experience/${parts[1]}`);
+      } else {
+        goHome(false);
+        history.replaceState(null, "", "#home");
+      }
+      return;
+    }
     state.experienceId = parts[1];
     openProject(parts[2], false);
-  } else if (parts[0] === "experience" && parts[1]) {
+  } else if (parts[0] === "experience" && parts[1] && experiences[parts[1]]) {
     openExperience(parts[1], false);
   } else {
     goHome(false);
+    if (location.hash && location.hash !== "#home") history.replaceState(null, "", "#home");
   }
 }
 
@@ -370,9 +453,10 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && contactCard.classList.contains("is-open")) {
-    setContactCard(false);
+    setContactCard(false, true);
     return;
   }
+  if (contactCard.classList.contains("is-open")) return;
   if (state.screen === "home") {
     if (event.key === "ArrowRight" || event.key === "PageDown") nudgeStream(1);
     if (event.key === "ArrowLeft" || event.key === "PageUp") nudgeStream(-1);
@@ -399,6 +483,7 @@ let viewerWheelLock = 0;
 let viewerWheelTimer = 0;
 viewerElement.addEventListener("wheel", (event) => {
   if (state.screen !== "viewer") return;
+  if (event.ctrlKey || event.metaKey) return;
   if (event.target.closest(".thumbnail-rail")) return;
   event.preventDefault();
   const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * window.innerHeight : event.deltaY;
@@ -594,4 +679,5 @@ window.addEventListener("resize", () => { scheduleStreamMeasure(120); updateRail
 renderTimeline();
 runStream();
 handleRoute();
+routeHydrated = true;
 if (document.fonts?.ready) document.fonts.ready.then(() => scheduleStreamMeasure(60));

@@ -28,7 +28,7 @@
       </button>
     </header>
 
-    <div class="contact-card" data-contact-card role="dialog" aria-label="联系唐尉保">
+    <div class="contact-card" data-contact-card role="dialog" aria-modal="true" aria-label="联系唐尉保">
       <button class="contact-card-close" type="button" data-contact-close aria-label="关闭联系名片">×</button>
       <div class="contact-card-head">
         <img class="contact-card-avatar" src="assets/profile.webp" alt="唐尉保头像" width="192" height="192">
@@ -51,7 +51,7 @@
 
         <header class="home-heading">
           <div class="home-heading-main">
-            <h1 id="home-title" class="portfolio-title">
+            <h1 id="home-title" class="portfolio-title" tabindex="-1">
               <span class="title-row">
                 <span class="title-text">Resume &amp;</span>
               </span>
@@ -94,7 +94,7 @@
             <div class="company-mark" data-projects-mark></div>
             <div>
               <p data-projects-period></p>
-              <h1 id="projects-title" data-projects-company></h1>
+              <h1 id="projects-title" data-projects-company tabindex="-1"></h1>
               <h2 data-projects-role></h2>
               <span data-projects-meta></span>
             </div>
@@ -113,12 +113,12 @@
 
       <section class="screen viewer-screen" data-screen="viewer" aria-labelledby="viewer-title" hidden>
         <header class="viewer-header">
-          <button class="viewer-back" type="button" data-viewer-back><span>←</span> 返回首页</button>
+          <button class="viewer-back" type="button" data-viewer-back><span>←</span> <span data-viewer-back-label>返回首页</span></button>
           <div class="viewer-title-wrap">
             <p data-viewer-company></p>
-            <h1 id="viewer-title" data-viewer-title></h1>
+            <h1 id="viewer-title" data-viewer-title tabindex="-1"></h1>
           </div>
-          <div class="viewer-count"><b data-current-count>01</b><span>/</span><span data-total-count>01</span></div>
+          <div class="viewer-count" role="status" aria-live="polite" aria-atomic="true"><b data-current-count>01</b><span>/</span><span data-total-count>01</span></div>
         </header>
 
         <div class="viewer-stage" data-viewer-stage>
