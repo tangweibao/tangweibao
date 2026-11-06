@@ -45,6 +45,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid #2f7ff7; outline-offs
 /* route changes move focus to the screen heading (tabindex="-1") for screen
    readers; that programmatic focus must not paint a focus ring */
 .screen h1[tabindex="-1"]:focus { outline: none; }
+/* the viewer title now lives inside the site header, outside .screen */
+#viewer-title[tabindex="-1"]:focus { outline: none; }
 
 .app-shell { width: 100%; height: 100%; overflow: hidden; }
 
@@ -342,6 +344,24 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .project-card.is-disabled::before { border-radius: 0; background: rgba(10,10,11,.65); font-size: 7px; letter-spacing: .1em; }
 
 .viewer-screen { --viewer-bg: #111214; grid-template-columns: minmax(0, 1fr) clamp(126px, 10vw, 164px); grid-template-rows: minmax(0, 1fr); }
+
+/* Home card → viewer shared-image entrance */
+.viewer-entry { position: fixed; z-index: 48; overflow: hidden; border-radius: 20px; background: #111214; pointer-events: none; will-change: left, top, width, height; }
+.viewer-entry img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.viewer-entry-cover { object-fit: cover; }
+.viewer-entry-page { object-fit: contain; opacity: 0; transition: opacity .24s var(--ease); }
+.viewer-entry.is-revealing .viewer-entry-cover { opacity: 0; }
+.viewer-entry.is-revealing .viewer-entry-page { opacity: 1; }
+.viewer-screen.is-scene-entering .viewer-stage { opacity: 0; }
+body[data-screen="viewer"] .viewer-nav { animation: viewer-nav-in .62s var(--ease) both .08s; }
+@keyframes viewer-nav-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-screen="viewer"] .viewer-nav { animation: none; }
+}
 .viewer-title-wrap h1 { font-family: "Arial Narrow", sans-serif; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
 .viewer-count b { font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif; font-size: 20px; font-weight: 500; }
 .artwork-frame { border-radius: 0; background: transparent; box-shadow: none; }

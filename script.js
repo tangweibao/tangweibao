@@ -341,6 +341,7 @@ function focusScreenHeading(screenName) {
 function setActiveScreen(screenName) {
   const changed = state.screen !== screenName;
   if (changed) setContactCard(false);
+  if (screenName !== "viewer") clearViewerEntry();
   state.screen = screenName;
   document.body.dataset.screen = screenName;
   if (changed && routeHydrated) window.requestAnimationFrame(() => focusScreenHeading(screenName));
@@ -408,7 +409,91 @@ function openProject(projectId, updateHash = true) {
   if (updateHash) pushRoute(`#project/${state.experienceId}/${projectId}`);
 }
 
-function openHomeProject(experienceId, projectId) {
+let viewerEntry = null;
+
+function clearViewerEntry() {
+  if (!viewerEntry) return;
+  viewerEntry.animation?.cancel();
+  viewerEntry.overlay.remove();
+  viewerEntry.screen?.classList.remove("is-scene-entering");
+  viewerEntry = null;
+}
+
+/* The clicked home card expands into the viewer stage: the card cover is
+   cloned into a fixed overlay that flips to the artwork frame, then the
+   overlay dissolves into the first page while the viewer chrome settles. */
+function startViewerEntry(card, project) {
+  if (!(card instanceof Element)) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  clearViewerEntry();
+  const image = card.querySelector("img");
+  const coverSource = image?.currentSrc || image?.src;
+  const pageSource = project?.slides?.[0]?.src;
+  const start = card.getBoundingClientRect();
+  const overlay = document.createElement("div");
+  overlay.className = "viewer-entry";
+  overlay.setAttribute("aria-hidden", "true");
+  const cover = document.createElement("img");
+  cover.className = "viewer-entry-cover";
+  cover.alt = "";
+  if (coverSource) cover.src = coverSource;
+  const page = document.createElement("img");
+  page.className = "viewer-entry-page";
+  page.alt = "";
+  if (pageSource) page.src = pageSource;
+  overlay.append(cover, page);
+  overlay.style.left = `${start.left}px`;
+  overlay.style.top = `${start.top}px`;
+  overlay.style.width = `${start.width}px`;
+  overlay.style.height = `${start.height}px`;
+  document.body.appendChild(overlay);
+  const viewerScreen = elements.screens.find((screen) => screen.dataset.screen === "viewer");
+  viewerScreen?.classList.add("is-scene-entering");
+  viewerEntry = { overlay, animation: null, screen: viewerScreen };
+}
+
+function runViewerEntry() {
+  const entry = viewerEntry;
+  if (!entry) return;
+  const { overlay } = entry;
+  const start = overlay.style;
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    if (!overlay.isConnected || viewerEntry !== entry) return;
+    const end = elements.artworkFrame.getBoundingClientRect();
+    const animation = overlay.animate([
+      { left: start.left, top: start.top, width: start.width, height: start.height, borderRadius: "20px" },
+      { left: `${end.left}px`, top: `${end.top}px`, width: `${end.width}px`, height: `${end.height}px`, borderRadius: "0px" }
+    ], { duration: 660, easing: "cubic-bezier(.66, 0, .2, 1)", fill: "forwards" });
+    entry.animation = animation;
+    animation.onfinish = () => {
+      if (!overlay.isConnected) return;
+      // dissolve the card cover into the first artwork page, then hand off
+      overlay.classList.add("is-revealing");
+      const handoff = () => {
+        overlay.remove();
+        entry.screen?.classList.remove("is-scene-entering");
+        if (viewerEntry === entry) viewerEntry = null;
+      };
+      const artwork = elements.artwork;
+      if (artwork.complete && artwork.naturalWidth) {
+        window.setTimeout(handoff, 250);
+        return;
+      }
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.setTimeout(handoff, 250);
+      };
+      artwork.addEventListener("load", finish, { once: true });
+      artwork.addEventListener("error", finish, { once: true });
+      window.setTimeout(finish, 900);
+    };
+  }));
+}
+
+function openHomeProject(experienceId, projectId, card) {
   const experience = experiences[experienceId];
   const project = experience?.projects.find((item) => item.id === projectId);
   if (!experience || !project) return;
@@ -417,7 +502,9 @@ function openHomeProject(experienceId, projectId) {
     return;
   }
   state.experienceId = experienceId;
+  startViewerEntry(card, project);
   openProject(projectId);
+  runViewerEntry();
 }
 
 function handleRoute() {
@@ -453,7 +540,7 @@ document.addEventListener("click", (event) => {
   const viewerBack = event.target.closest("[data-viewer-back]");
 
   if (homeTrigger) goHome();
-  else if (homeProjectTrigger) openHomeProject(homeProjectTrigger.dataset.homeExperience, homeProjectTrigger.dataset.homeProject);
+  else if (homeProjectTrigger) openHomeProject(homeProjectTrigger.dataset.homeExperience, homeProjectTrigger.dataset.homeProject, homeProjectTrigger);
   else if (projectTrigger) openProject(projectTrigger.dataset.project);
   else if (thumbnailTrigger) showSlide(Number(thumbnailTrigger.dataset.slideIndex));
   else if (viewerBack) leaveViewer();
