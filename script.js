@@ -129,6 +129,7 @@ const elements = {
   currentCount: document.querySelector("[data-current-count]"),
   totalCount: document.querySelector("[data-total-count]"),
   artwork: document.querySelector("[data-main-artwork]"),
+  artworkGhost: document.querySelector("[data-artwork-ghost]"),
   loader: document.querySelector("[data-image-loader]"),
   thumbnailRail: document.querySelector("[data-thumbnail-rail]"),
   artworkFrame: document.querySelector("[data-artwork-frame]"),
@@ -304,6 +305,102 @@ function renderViewer() {
   window.requestAnimationFrame(updateRailMask);
 }
 
+const slideMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+let slideAnimToken = 0;
+let slideAnimTimer = 0;
+
+function markArtworkReady() {
+  elements.artwork.classList.remove("is-loading");
+  elements.loader.classList.remove("is-active");
+  sizeArtworkFrame();
+}
+
+function placeArtwork(slide) {
+  elements.artwork.classList.add("is-loading");
+  elements.loader.classList.add("is-active");
+  elements.artwork.onload = markArtworkReady;
+  elements.artwork.onerror = markArtworkReady;
+  elements.artwork.src = slide.src;
+  elements.artwork.alt = slide.alt;
+  if (elements.artwork.complete) markArtworkReady();
+}
+
+function resetArtworkLayers() {
+  window.clearTimeout(slideAnimTimer);
+  slideAnimToken += 1;
+  const ghost = elements.artworkGhost;
+  if (ghost) {
+    ghost.style.transition = "none";
+    ghost.style.transform = "";
+    ghost.style.visibility = "hidden";
+  }
+  elements.artwork.style.transition = "none";
+  elements.artwork.style.transform = "";
+  void elements.artwork.offsetWidth;
+  elements.artwork.style.transition = "";
+  elements.artwork.style.transform = "";
+}
+
+/* Page turn: the outgoing page slides out while the next one slides in from
+   the opposite edge (the damped vertical motion used by motion-led sites). */
+function moveArtwork(slide, direction) {
+  const ghost = elements.artworkGhost;
+  if (!ghost || slideMotionQuery.matches) {
+    resetArtworkLayers();
+    placeArtwork(slide);
+    return;
+  }
+  const previousSrc = elements.artwork.currentSrc || elements.artwork.src;
+  resetArtworkLayers();
+  if (!previousSrc) {
+    placeArtwork(slide);
+    return;
+  }
+  const token = slideAnimToken;
+  ghost.src = previousSrc;
+  ghost.alt = "";
+  ghost.style.visibility = "visible";
+  ghost.style.transform = "translateY(0)";
+  elements.artwork.classList.add("is-loading");
+  elements.loader.classList.add("is-active");
+
+  const incoming = new Image();
+  const start = () => {
+    if (token !== slideAnimToken) return;
+    elements.artwork.onload = null;
+    elements.artwork.onerror = null;
+    elements.artwork.src = slide.src;
+    elements.artwork.alt = slide.alt;
+    elements.artwork.style.transform = `translateY(${direction > 0 ? 100 : -100}%) scale(1.02)`;
+    sizeArtworkFrame();
+    void elements.artwork.offsetWidth;
+    const easing = "cubic-bezier(.76, 0, .24, 1)";
+    const duration = 640;
+    ghost.style.transition = `transform ${duration}ms ${easing}`;
+    elements.artwork.style.transition = `transform ${duration}ms ${easing}`;
+    window.requestAnimationFrame(() => {
+      ghost.style.transform = `translateY(${direction > 0 ? -100 : 100}%) scale(.98)`;
+      elements.artwork.style.transform = "translateY(0) scale(1)";
+    });
+    elements.loader.classList.remove("is-active");
+    elements.artwork.classList.remove("is-loading");
+    slideAnimTimer = window.setTimeout(() => {
+      if (token !== slideAnimToken) return;
+      ghost.style.visibility = "hidden";
+      ghost.style.transition = "none";
+      elements.artwork.style.transition = "";
+      elements.artwork.style.transform = "";
+      markArtworkReady();
+    }, duration + 40);
+  };
+  incoming.src = slide.src;
+  if (incoming.complete && incoming.naturalWidth) start();
+  else {
+    incoming.onload = start;
+    incoming.onerror = start;
+  }
+}
+
 function showSlide(index, scrollThumbnail = true) {
   const project = currentProject();
   if (!project?.slides?.length) return;
@@ -312,24 +409,12 @@ function showSlide(index, scrollThumbnail = true) {
   state.slideIndex = (index + project.slides.length) % project.slides.length;
   const slide = project.slides[state.slideIndex];
   elements.currentCount.textContent = pad(state.slideIndex + 1);
-  elements.artwork.classList.add("is-loading");
-  elements.loader.classList.add("is-active");
 
-  const onLoaded = () => {
-    elements.artwork.classList.remove("is-loading");
-    elements.loader.classList.remove("is-active");
-    sizeArtworkFrame();
-  };
-  elements.artwork.onload = onLoaded;
-  elements.artwork.onerror = onLoaded;
-  elements.artwork.src = slide.src;
-  elements.artwork.alt = slide.alt;
-  if (elements.artwork.complete) onLoaded();
-
-  elements.artwork.classList.remove("is-enter-next", "is-enter-prev");
-  if (direction) {
-    void elements.artwork.offsetWidth;
-    elements.artwork.classList.add(direction > 0 ? "is-enter-next" : "is-enter-prev");
+  if (direction === 0) {
+    resetArtworkLayers();
+    placeArtwork(slide);
+  } else {
+    moveArtwork(slide, direction);
   }
 
   const thumbnails = [...elements.thumbnailRail.querySelectorAll(".thumbnail")];
@@ -467,9 +552,7 @@ function startViewerEntry(card, project) {
   const page = document.createElement("img");
   page.className = "viewer-entry-page";
   page.alt = "";
-  const thumbSource = project?.slides?.[0]?.thumb;
-  if (thumbSource) page.src = thumbSource;
-  else if (pageSource) page.src = pageSource;
+  if (pageSource) page.src = pageSource;
   overlay.append(cover, page);
   if (pageSource) {
     const fullPage = new Image();
@@ -486,6 +569,17 @@ function startViewerEntry(card, project) {
   const viewerScreen = elements.screens.find((screen) => screen.dataset.screen === "viewer");
   viewerScreen?.classList.add("is-scene-entering");
   viewerEntry = { overlay, animation: null, screen: viewerScreen, pageImage: page };
+
+  // swap the card cover for the first page early, while the layer is still
+  // close to card size, so the large artwork never cross-fades at full size
+  const morph = () => {
+    if (overlay.isConnected) overlay.classList.add("is-morphing");
+  };
+  if (page.complete && page.naturalWidth) window.requestAnimationFrame(morph);
+  else {
+    page.addEventListener("load", () => window.requestAnimationFrame(morph), { once: true });
+    page.addEventListener("error", () => window.requestAnimationFrame(morph), { once: true });
+  }
 }
 
 function runViewerEntry() {
@@ -509,31 +603,29 @@ function runViewerEntry() {
         entry.screen?.classList.remove("is-scene-entering");
         if (viewerEntry === entry) viewerEntry = null;
       };
-      const reveal = () => {
-        if (!overlay.isConnected) return;
-        // dissolve the card cover into the first artwork page, then hand off
-        overlay.classList.add("is-revealing");
-        const artwork = elements.artwork;
-        const showFullPage = () => {
-          if (entry.pageImage && artwork.currentSrc) entry.pageImage.src = artwork.currentSrc;
-        };
-        if (artwork.complete && artwork.naturalWidth) {
-          showFullPage();
-          window.setTimeout(handoff, 150);
-          return;
-        }
-        let settled = false;
-        const finish = (loaded) => {
-          if (settled) return;
-          settled = true;
-          if (loaded) showFullPage();
-          window.setTimeout(handoff, loaded ? 150 : 50);
-        };
-        artwork.addEventListener("load", () => finish(true), { once: true });
-        artwork.addEventListener("error", () => finish(false), { once: true });
-        window.setTimeout(() => finish(false), 6000);
+      const page = entry.pageImage;
+      const artwork = elements.artwork;
+      const handoffWhenReady = () => {
+        if (page && artwork.currentSrc) page.src = artwork.currentSrc;
+        window.setTimeout(handoff, 80);
       };
-      reveal();
+      if ((!page || (page.complete && page.naturalWidth)) && artwork.complete && artwork.naturalWidth) {
+        handoffWhenReady();
+        return;
+      }
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        handoffWhenReady();
+      };
+      artwork.addEventListener("load", finish, { once: true });
+      artwork.addEventListener("error", finish, { once: true });
+      if (page) {
+        page.addEventListener("load", finish, { once: true });
+        page.addEventListener("error", finish, { once: true });
+      }
+      window.setTimeout(finish, 6000);
     };
   }));
 }
