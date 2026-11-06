@@ -151,29 +151,119 @@ function isViewerFullscreen() {
   return document.fullscreenElement === elements.viewerScreen || elements.viewerScreen.classList.contains("is-pseudo-fullscreen");
 }
 
+let fullscreenIdleTimer = 0;
+let fullscreenExitAt = 0;
+let fullscreenMorph = null;
+
+function wakeFullscreenUI() {
+  if (!isViewerFullscreen()) return;
+  elements.viewerScreen.classList.remove("is-ui-idle");
+  window.clearTimeout(fullscreenIdleTimer);
+  fullscreenIdleTimer = window.setTimeout(() => {
+    if (isViewerFullscreen()) elements.viewerScreen.classList.add("is-ui-idle");
+  }, 2400);
+}
+
+function resetFullscreenUI() {
+  window.clearTimeout(fullscreenIdleTimer);
+  elements.viewerScreen.classList.remove("is-ui-idle");
+}
+
+function beginFullscreenMorph() {
+  if (fullscreenMorph) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const frame = elements.artworkFrame.getBoundingClientRect();
+  const source = elements.artwork.currentSrc || elements.artwork.src;
+  if (!source || !frame.width) return;
+  const overlay = document.createElement("div");
+  overlay.className = "viewer-entry";
+  overlay.setAttribute("aria-hidden", "true");
+  const image = document.createElement("img");
+  image.className = "viewer-entry-page";
+  image.alt = "";
+  image.src = source;
+  image.style.objectFit = "contain";
+  image.style.opacity = "1";
+  overlay.append(image);
+  overlay.style.left = `${frame.left}px`;
+  overlay.style.top = `${frame.top}px`;
+  overlay.style.width = `${frame.width}px`;
+  overlay.style.height = `${frame.height}px`;
+  overlay.style.borderRadius = "0px";
+  // the overlay must live inside the fullscreen element, otherwise the
+  // browser only paints the fullscreen subtree
+  elements.viewerScreen.appendChild(overlay);
+  elements.viewerScreen.classList.add("is-scene-entering");
+  fullscreenMorph = { overlay, from: frame };
+}
+
+function finishFullscreenMorph() {
+  const morph = fullscreenMorph;
+  if (!morph) {
+    elements.viewerScreen.classList.remove("is-scene-entering");
+    return;
+  }
+  fullscreenMorph = null;
+  sizeArtworkFrame();
+  const { overlay, from } = morph;
+  if (!overlay.isConnected) {
+    elements.viewerScreen.classList.remove("is-scene-entering");
+    return;
+  }
+  const to = elements.artworkFrame.getBoundingClientRect();
+  const animation = overlay.animate([
+    { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` },
+    { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px` }
+  ], { duration: 460, easing: "cubic-bezier(.22, 1, .36, 1)", fill: "forwards" });
+  animation.onfinish = () => {
+    overlay.remove();
+    elements.viewerScreen.classList.remove("is-scene-entering");
+  };
+}
+
 function syncFullscreenUI() {
   const active = isViewerFullscreen();
   elements.viewerScreen.classList.toggle("is-fullscreen", active);
   elements.fullscreenToggle.setAttribute("aria-pressed", String(active));
-  const label = active ? "退出全屏" : "全屏查看";
+  const label = active ? "退出全屏" : "全屏浏览";
   elements.fullscreenToggle.setAttribute("aria-label", label);
   elements.fullscreenToggle.setAttribute("title", label);
+  const labelNode = elements.fullscreenToggle.querySelector("[data-fullscreen-label]");
+  if (labelNode) labelNode.textContent = label;
+  if (active) wakeFullscreenUI();
+  else resetFullscreenUI();
   window.requestAnimationFrame(() => {
     sizeArtworkFrame();
     updateRailMask();
   });
 }
 
+function clearFullscreenMorph() {
+  if (!fullscreenMorph) return;
+  fullscreenMorph.overlay.remove();
+  fullscreenMorph = null;
+  elements.viewerScreen.classList.remove("is-scene-entering");
+}
+
 function exitPseudoFullscreen() {
   elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
+  fullscreenExitAt = performance.now();
   syncFullscreenUI();
 }
 
 function toggleViewerFullscreen() {
   if (state.screen !== "viewer") return;
+  beginFullscreenMorph();
   if (isViewerFullscreen()) {
-    if (document.fullscreenElement) document.exitFullscreen().catch(exitPseudoFullscreen);
-    else exitPseudoFullscreen();
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        exitPseudoFullscreen();
+        window.requestAnimationFrame(finishFullscreenMorph);
+      });
+    } else {
+      exitPseudoFullscreen();
+      window.requestAnimationFrame(finishFullscreenMorph);
+    }
     return;
   }
   const request = elements.viewerScreen.requestFullscreen;
@@ -181,17 +271,27 @@ function toggleViewerFullscreen() {
     request.call(elements.viewerScreen).catch(() => {
       elements.viewerScreen.classList.add("is-pseudo-fullscreen");
       syncFullscreenUI();
+      window.requestAnimationFrame(finishFullscreenMorph);
     });
   } else {
     elements.viewerScreen.classList.add("is-pseudo-fullscreen");
     syncFullscreenUI();
+    window.requestAnimationFrame(finishFullscreenMorph);
   }
 }
 
 document.addEventListener("fullscreenchange", () => {
-  if (!document.fullscreenElement) elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
+  if (!document.fullscreenElement) {
+    elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
+    fullscreenExitAt = performance.now();
+  }
   syncFullscreenUI();
+  if (fullscreenMorph) window.requestAnimationFrame(() => window.requestAnimationFrame(finishFullscreenMorph));
 });
+
+document.addEventListener("pointermove", wakeFullscreenUI, { passive: true });
+document.addEventListener("touchstart", wakeFullscreenUI, { passive: true });
+document.addEventListener("keydown", wakeFullscreenUI);
 
 function updateRailMask() {
   const rail = elements.thumbnailRail;
@@ -352,30 +452,43 @@ function otherProjectItems() {
 function renderOtherProjects() {
   const rail = elements.otherProjectsRail;
   if (!rail) return;
-  rail.innerHTML = otherProjectItems().map(({ experience, project }) => `
-    <button class="other-project" type="button" data-other-project="${project.id}" data-other-experience="${experience.id}" aria-label="查看 ${project.name}">
+  const items = otherProjectItems();
+  const span = Math.max(1, items.length - 1);
+  rail.innerHTML = items.map(({ experience, project }, index) => {
+    // one-by-one rise with a parabolic acceleration across the row
+    const delay = Math.round(60 + 150 * Math.pow(index / span, 2));
+    return `
+    <button class="other-project" type="button" data-other-project="${project.id}" data-other-experience="${experience.id}" aria-label="查看 ${project.name}" style="--stagger: ${delay}ms">
       <img src="${project.cover}" alt="" loading="lazy">
       <b>${project.name}</b>
       <em>${experience.company} · ${experience.period}</em>
-    </button>
-  `).join("");
+    </button>`;
+  }).join("");
 }
 
-function openOtherProject(experienceId, projectId) {
+function openOtherProject(experienceId, projectId, card) {
   const experience = experiences[experienceId];
   const project = experience?.projects.find((item) => item.id === projectId);
   if (!experience || !project || project.disabled) return;
+  const commit = () => {
+    state.experienceId = experienceId;
+    state.projectId = projectId;
+    state.slideIndex = 0;
+    state.viewerOrigin = "home";
+    renderViewer();
+    updateViewerBackLabel();
+    setActiveScreen("viewer");
+    sizeArtworkFrame();
+    pushRoute(`#project/${experienceId}/${projectId}`);
+  };
   clearViewerExit();
-  clearViewerEntry();
-  state.experienceId = experienceId;
-  state.projectId = projectId;
-  state.slideIndex = 0;
-  state.viewerOrigin = "home";
-  renderViewer();
-  updateViewerBackLabel();
-  setActiveScreen("viewer");
-  sizeArtworkFrame();
-  pushRoute(`#project/${experienceId}/${projectId}`);
+  if (!(card instanceof Element) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    commit();
+    return;
+  }
+  startViewerEntry(card, project, { hideDock: false });
+  commit();
+  runViewerEntry();
 }
 
 function renderViewer() {
@@ -547,7 +660,10 @@ function focusScreenHeading(screenName) {
 function setActiveScreen(screenName) {
   const changed = state.screen !== screenName;
   if (changed) setContactCard(false);
-  if (screenName !== "viewer") clearViewerEntry();
+  if (screenName !== "viewer") {
+    clearViewerEntry();
+    clearFullscreenMorph();
+  }
   if (screenName !== "viewer" && isViewerFullscreen()) {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     elements.viewerScreen.classList.remove("is-pseudo-fullscreen");
@@ -667,14 +783,18 @@ function startViewerExit() {
       { left: `${target.left}px`, top: `${target.top}px`, width: `${target.width}px`, height: `${target.height}px`, borderRadius: radius }
     ], { duration: 660, easing: "cubic-bezier(.66, 0, .2, 1)", fill: "forwards" });
     entry.animation = animation;
-    window.setTimeout(() => { if (overlay.isConnected) overlay.classList.add("is-remorphing"); }, 420);
     animation.onfinish = () => {
-      overlay.classList.add("is-fading");
+      // only after the artwork has shrunk to card size, softly dissolve it
+      // back into the card cover, then hand off to the home screen
+      overlay.classList.add("is-remorphing");
       window.setTimeout(() => {
-        overlay.remove();
-        elements.homeScreen.classList.remove("is-scene-revealing");
-        elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
-        if (viewerExit === entry) viewerExit = null;
+        overlay.classList.add("is-fading");
+        window.setTimeout(() => {
+          overlay.remove();
+          elements.homeScreen.classList.remove("is-scene-revealing");
+          elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
+          if (viewerExit === entry) viewerExit = null;
+        }, 180);
       }, 200);
     };
   }));
@@ -735,7 +855,7 @@ function clearViewerEntry() {
 /* The clicked home card expands into the viewer stage: the card cover is
    cloned into a fixed overlay that flips to the artwork frame, then the
    overlay dissolves into the first page while the viewer chrome settles. */
-function startViewerEntry(card, project) {
+function startViewerEntry(card, project, options = {}) {
   if (!(card instanceof Element)) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -770,7 +890,8 @@ function startViewerEntry(card, project) {
   overlay.style.height = `${start.height}px`;
   document.body.appendChild(overlay);
   const viewerScreen = elements.screens.find((screen) => screen.dataset.screen === "viewer");
-  viewerScreen?.classList.add("is-scene-entering", "is-dock-hidden");
+  viewerScreen?.classList.add("is-scene-entering");
+  if (options.hideDock !== false) viewerScreen?.classList.add("is-dock-hidden");
   viewerEntry = { overlay, animation: null, screen: viewerScreen, pageImage: page };
 
   // swap the card cover for the first page early, while the layer is still
@@ -885,7 +1006,7 @@ document.addEventListener("click", (event) => {
   else if (homeProjectTrigger) openHomeProject(homeProjectTrigger.dataset.homeExperience, homeProjectTrigger.dataset.homeProject, homeProjectTrigger);
   else if (projectTrigger) openProject(projectTrigger.dataset.project);
   else if (thumbnailTrigger) showSlide(Number(thumbnailTrigger.dataset.slideIndex));
-  else if (otherProjectTrigger) openOtherProject(otherProjectTrigger.dataset.otherExperience, otherProjectTrigger.dataset.otherProject);
+  else if (otherProjectTrigger) openOtherProject(otherProjectTrigger.dataset.otherExperience, otherProjectTrigger.dataset.otherProject, otherProjectTrigger);
   else if (fullscreenTrigger) toggleViewerFullscreen();
   else if (viewerBack) leaveViewer();
 });
@@ -907,10 +1028,12 @@ document.addEventListener("keydown", (event) => {
     if (event.key === "ArrowUp" || event.key === "PageUp") showSlide(state.slideIndex - 1);
     if (event.key === "Escape") {
       if (isViewerFullscreen()) {
+        beginFullscreenMorph();
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         else exitPseudoFullscreen();
         return;
       }
+      if (performance.now() - fullscreenExitAt < 400) return;
       leaveViewer();
     }
   }

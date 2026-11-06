@@ -240,12 +240,12 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-count { margin-left: auto; flex: 0 0 auto; display: flex; align-items: baseline; gap: 6px; color: #7d8794; font-size: 10px; white-space: nowrap; }
 .viewer-count b { color: #f4f5f6; font-size: 18px; }
 
-.viewer-stage { position: relative; grid-column: 1; grid-row: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 18px clamp(16px, 2.2vw, 34px); }
+.viewer-stage { position: relative; grid-column: 1; grid-row: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; overflow: hidden; padding: 18px clamp(16px, 2.2vw, 34px); }
 .artwork-frame { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border-radius: 5px; background: #151b22; box-shadow: 0 20px 55px rgba(0, 0, 0, .28); touch-action: none; }
 /* Fullscreen viewing */
-.fullscreen-toggle { position: absolute; z-index: 5; top: 14px; right: 14px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid rgba(255, 255, 255, .16); border-radius: 50%; color: #dfe4ea; background: rgba(12, 13, 15, .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: pointer; transition: background .2s, border-color .2s, opacity .2s; }
+.fullscreen-toggle { position: absolute; z-index: 5; top: 14px; right: 14px; display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px 0 11px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #dfe4ea; background: rgba(12, 13, 15, .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font: inherit; font-size: 11px; letter-spacing: .04em; white-space: nowrap; cursor: pointer; transition: background .2s, border-color .2s, opacity .35s ease, transform .35s var(--ease); }
 .fullscreen-toggle:hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .42); }
-.fullscreen-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.fullscreen-toggle svg { flex: 0 0 auto; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .fullscreen-toggle .icon-collapse { display: none; }
 .viewer-screen.is-fullscreen .fullscreen-toggle .icon-expand { display: none; }
 .viewer-screen.is-fullscreen .fullscreen-toggle .icon-collapse { display: block; }
@@ -256,7 +256,8 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-screen.is-fullscreen .viewer-stage { padding: 0; }
 .viewer-screen:fullscreen { padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
 .viewer-screen.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 90; padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
-.viewer-screen.is-fullscreen .fullscreen-toggle { top: 20px; right: 20px; width: 40px; height: 40px; background: rgba(18, 20, 23, .72); }
+.viewer-screen.is-fullscreen .fullscreen-toggle { top: 20px; right: 20px; height: 38px; padding: 0 15px 0 13px; background: rgba(18, 20, 23, .72); }
+.viewer-screen.is-fullscreen.is-ui-idle .fullscreen-toggle { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 
 /* Thumbnail rail slides in/out from its own edge */
 .thumbnail-dock { transition: transform .55s cubic-bezier(.22, 1, .36, 1), opacity .4s ease; }
@@ -269,12 +270,14 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-entry.is-fading { opacity: 0; transition: opacity .2s linear; }
 
 /* Other projects on the last page */
-.other-projects { position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; padding: clamp(14px, 2.2vw, 24px) clamp(14px, 2.2vw, 30px) clamp(12px, 1.8vw, 20px); border-top: 1px solid rgba(255, 255, 255, .08); background: rgba(10, 12, 16, .92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 -24px 60px rgba(0, 0, 0, .35); opacity: 0; transform: translateY(100%); pointer-events: none; transition: transform .55s cubic-bezier(.22, 1, .36, 1), opacity .35s ease; }
-.viewer-screen.is-last-slide .other-projects { opacity: 1; transform: none; pointer-events: auto; }
+.other-projects { visibility: hidden; position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; padding: clamp(14px, 2.2vw, 24px) clamp(14px, 2.2vw, 30px) clamp(12px, 1.8vw, 20px); border-top: 1px solid rgba(255, 255, 255, .08); background: rgba(10, 12, 16, .92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 -24px 60px rgba(0, 0, 0, .35); opacity: 0; transform: translateY(100%); pointer-events: none; transition: transform .55s cubic-bezier(.22, 1, .36, 1), opacity .35s ease; }
+.viewer-screen.is-last-slide .other-projects { visibility: visible; opacity: 1; transform: none; pointer-events: auto; }
 .other-projects p { margin: 0 0 10px; color: #8a929e; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
 .other-projects-rail { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .other-projects-rail::-webkit-scrollbar { display: none; }
-.other-project { flex: 0 0 auto; width: clamp(120px, 14vw, 210px); padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.other-project { flex: 0 0 auto; width: clamp(120px, 14vw, 210px); padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; opacity: 0; transform: translateY(26px); }
+.viewer-screen.is-last-slide .other-project { animation: other-project-in .52s cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--stagger, 0ms); }
+@keyframes other-project-in { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
 .other-project img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; opacity: .6; filter: brightness(.85); transition: opacity .25s, transform .3s; }
 .other-project:hover img, .other-project:focus-visible img { opacity: 1; }
 .other-project b { display: block; margin-top: 7px; overflow: hidden; color: #d6dade; font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
