@@ -265,8 +265,6 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-screen.is-scene-shrinking .viewer-stage { opacity: 0; }
 .viewer-screen.is-scene-shrinking .thumbnail-dock { transform: translateX(105%); opacity: 0; }
 .home-screen.is-scene-revealing { opacity: 1; transform: none; filter: none; transition: none; }
-.viewer-entry.is-remorphing .viewer-entry-cover { opacity: 1; }
-.viewer-entry.is-remorphing .viewer-entry-page { opacity: 0; }
 .viewer-entry.is-fading { opacity: 0; transition: opacity .2s linear; }
 
 /* Other projects on the last page */
@@ -400,8 +398,12 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-entry img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .viewer-entry-cover { object-fit: cover; transition: opacity .18s linear; }
 .viewer-entry-page { object-fit: cover; opacity: 0; transition: opacity .18s linear; }
-.viewer-entry.is-morphing .viewer-entry-cover { opacity: 0; }
+/* entry: fade the page in above the still-opaque cover (no crossfade dip) */
 .viewer-entry.is-morphing .viewer-entry-page { opacity: 1; }
+/* exit: page is the visible base layer, cover fades in above it at the end */
+.viewer-entry.is-exiting .viewer-entry-page { opacity: 1; }
+.viewer-entry.is-exiting .viewer-entry-cover { opacity: 0; }
+.viewer-entry.is-exiting.is-remorphing .viewer-entry-cover { opacity: 1; }
 .viewer-screen.is-scene-entering { opacity: 1; transform: none; filter: none; transition: none; }
 .viewer-screen.is-scene-entering .viewer-stage { opacity: 0; }
 body[data-screen="viewer"] .viewer-nav { animation: viewer-nav-in .62s var(--ease) both .08s; }

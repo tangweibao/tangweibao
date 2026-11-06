@@ -760,6 +760,7 @@ function startViewerExit() {
     cover.style.transform = style.transform;
   }
   overlay.append(page, cover);
+  overlay.classList.add("is-exiting");
   overlay.style.left = `${frame.left}px`;
   overlay.style.top = `${frame.top}px`;
   overlay.style.width = `${frame.width}px`;
@@ -848,7 +849,7 @@ function clearViewerEntry() {
   if (!viewerEntry) return;
   viewerEntry.animation?.cancel();
   viewerEntry.overlay.remove();
-  viewerEntry.screen?.classList.remove("is-scene-entering");
+  viewerEntry.screen?.classList.remove("is-scene-entering", "is-dock-hidden");
   viewerEntry = null;
 }
 
@@ -922,6 +923,9 @@ function runViewerEntry() {
     entry.animation = animation;
     animation.onfinish = () => {
       if (!overlay.isConnected) return;
+      // the rail slides in with the expansion, not with the (possibly slow)
+      // full-resolution artwork load
+      entry.screen?.classList.remove("is-dock-hidden");
       const handoff = () => {
         overlay.remove();
         entry.screen?.classList.remove("is-scene-entering", "is-dock-hidden");
@@ -931,7 +935,7 @@ function runViewerEntry() {
       const artwork = elements.artwork;
       const handoffWhenReady = () => {
         if (page && artwork.currentSrc) page.src = artwork.currentSrc;
-        window.setTimeout(handoff, 80);
+        window.setTimeout(handoff, 230);
       };
       if ((!page || (page.complete && page.naturalWidth)) && artwork.complete && artwork.naturalWidth) {
         handoffWhenReady();
