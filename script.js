@@ -138,6 +138,8 @@ const elements = {
   fullscreenCurrent: document.querySelector("[data-fullscreen-current]"),
   fullscreenTotal: document.querySelector("[data-fullscreen-total]"),
   viewerStage: document.querySelector("[data-viewer-stage]"),
+  homeScreen: document.querySelector('[data-screen="home"]'),
+  otherProjectsRail: document.querySelector("[data-other-projects-rail]"),
   streamShell: document.querySelector("[data-stream-shell]"),
   streamProgress: document.querySelector("[data-stream-progress]"),
   viewerBackLabel: document.querySelector("[data-viewer-back-label]")
@@ -337,6 +339,45 @@ function renderProjects() {
   `).join("");
 }
 
+function otherProjectItems() {
+  const currentExperienceId = state.experienceId;
+  const currentProjectId = state.projectId;
+  return Object.values(experiences).flatMap((experience) =>
+    experience.projects
+      .filter((project) => !project.disabled && project.slides?.length)
+      .map((project) => ({ experience, project }))
+  ).filter(({ experience, project }) => !(experience.id === currentExperienceId && project.id === currentProjectId));
+}
+
+function renderOtherProjects() {
+  const rail = elements.otherProjectsRail;
+  if (!rail) return;
+  rail.innerHTML = otherProjectItems().map(({ experience, project }) => `
+    <button class="other-project" type="button" data-other-project="${project.id}" data-other-experience="${experience.id}" aria-label="查看 ${project.name}">
+      <img src="${project.cover}" alt="" loading="lazy">
+      <b>${project.name}</b>
+      <em>${experience.company} · ${experience.period}</em>
+    </button>
+  `).join("");
+}
+
+function openOtherProject(experienceId, projectId) {
+  const experience = experiences[experienceId];
+  const project = experience?.projects.find((item) => item.id === projectId);
+  if (!experience || !project || project.disabled) return;
+  clearViewerExit();
+  clearViewerEntry();
+  state.experienceId = experienceId;
+  state.projectId = projectId;
+  state.slideIndex = 0;
+  state.viewerOrigin = "home";
+  renderViewer();
+  updateViewerBackLabel();
+  setActiveScreen("viewer");
+  sizeArtworkFrame();
+  pushRoute(`#project/${experienceId}/${projectId}`);
+}
+
 function renderViewer() {
   const experience = currentExperience();
   const project = currentProject();
@@ -346,6 +387,8 @@ function renderViewer() {
   elements.viewerTitle.textContent = project.name;
   elements.totalCount.textContent = pad(project.slides.length);
   elements.fullscreenTotal.textContent = pad(project.slides.length);
+  elements.viewerScreen.classList.remove("is-last-slide");
+  renderOtherProjects();
   elements.thumbnailRail.innerHTML = project.slides.map((slide, index) => `
     <button class="thumbnail${index === state.slideIndex ? " is-current" : ""}" type="button" data-slide-index="${index}" role="option" aria-selected="${index === state.slideIndex}" tabindex="${index === state.slideIndex ? 0 : -1}" aria-label="查看第 ${index + 1} 页">
       <img src="${slide.thumb}" alt="" loading="lazy">
@@ -461,6 +504,7 @@ function showSlide(index, scrollThumbnail = true) {
   const slide = project.slides[state.slideIndex];
   elements.currentCount.textContent = pad(state.slideIndex + 1);
   elements.fullscreenCurrent.textContent = pad(state.slideIndex + 1);
+  elements.viewerScreen.classList.toggle("is-last-slide", state.slideIndex === project.slides.length - 1);
 
   if (direction === 0) {
     resetArtworkLayers();
@@ -545,9 +589,103 @@ function goHome(updateHash = true) {
   if (updateHash) pushRoute("#home");
 }
 
+let viewerExit = null;
+
+function clearViewerExit() {
+  if (!viewerExit) return;
+  viewerExit.animation?.cancel();
+  viewerExit.overlay.remove();
+  elements.homeScreen.classList.remove("is-scene-revealing");
+  elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
+  viewerExit = null;
+}
+
+/* Reverse of the card-to-viewer entrance: the artwork shrinks back into the
+   home card while the page underneath swaps back to home. */
+function startViewerExit() {
+  if (viewerExit) return true;
+  if (state.screen !== "viewer" || isViewerFullscreen()) return false;
+  if (state.viewerOrigin === "projects") return false;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  const experienceId = state.experienceId;
+  const projectId = state.projectId;
+  if (!experienceId || !projectId) return false;
+  const card = document.querySelector(`[data-home-project="${projectId}"][data-home-experience="${experienceId}"]`);
+  const artwork = elements.artwork;
+  const pageSource = artwork.currentSrc || artwork.src;
+  if (!card || !pageSource) return false;
+  if (stream.dirty && !elements.homeScreen.hidden) measureStream();
+  const cardItem = stream.cards.find((item) => item.element === card);
+  if (!cardItem) return false;
+  const cardLeft = cardItem.center - cardItem.width / 2 - stream.current;
+  const cardRight = cardItem.center + cardItem.width / 2 - stream.current;
+  const visible = Math.min(cardRight, stream.viewport) - Math.max(cardLeft, 0);
+  if (visible < cardItem.width * 0.5) return false;
+
+  const coverImage = card.querySelector("img");
+  const coverSource = coverImage?.currentSrc || coverImage?.src;
+  const frame = elements.artworkFrame.getBoundingClientRect();
+  clearViewerEntry();
+
+  const overlay = document.createElement("div");
+  overlay.className = "viewer-entry";
+  overlay.setAttribute("aria-hidden", "true");
+  const page = document.createElement("img");
+  page.className = "viewer-entry-page";
+  page.alt = "";
+  page.src = pageSource;
+  const cover = document.createElement("img");
+  cover.className = "viewer-entry-cover";
+  cover.alt = "";
+  if (coverSource) cover.src = coverSource;
+  if (coverImage) {
+    const style = window.getComputedStyle(coverImage);
+    cover.style.filter = style.filter;
+    cover.style.transform = style.transform;
+  }
+  overlay.append(page, cover);
+  overlay.style.left = `${frame.left}px`;
+  overlay.style.top = `${frame.top}px`;
+  overlay.style.width = `${frame.width}px`;
+  overlay.style.height = `${frame.height}px`;
+  overlay.style.borderRadius = "0px";
+  document.body.appendChild(overlay);
+
+  elements.viewerScreen.classList.add("is-scene-shrinking", "is-dock-hidden");
+  elements.homeScreen.classList.add("is-scene-revealing");
+  const entry = { overlay, animation: null };
+  viewerExit = entry;
+  goHome(false);
+  history.replaceState(null, "", "#home");
+
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    if (!overlay.isConnected) return;
+    const target = card.getBoundingClientRect();
+    const radius = window.getComputedStyle(card).borderRadius || "0px";
+    const animation = overlay.animate([
+      { left: `${frame.left}px`, top: `${frame.top}px`, width: `${frame.width}px`, height: `${frame.height}px`, borderRadius: "0px" },
+      { left: `${target.left}px`, top: `${target.top}px`, width: `${target.width}px`, height: `${target.height}px`, borderRadius: radius }
+    ], { duration: 660, easing: "cubic-bezier(.66, 0, .2, 1)", fill: "forwards" });
+    entry.animation = animation;
+    window.setTimeout(() => { if (overlay.isConnected) overlay.classList.add("is-remorphing"); }, 420);
+    animation.onfinish = () => {
+      overlay.classList.add("is-fading");
+      window.setTimeout(() => {
+        overlay.remove();
+        elements.homeScreen.classList.remove("is-scene-revealing");
+        elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
+        if (viewerExit === entry) viewerExit = null;
+      }, 200);
+    };
+  }));
+  return true;
+}
+
 function leaveViewer() {
+  if (startViewerExit()) return;
   if (state.viewerOrigin === "projects" && state.experienceId && state.screen === "viewer") {
-    history.back();
+    elements.viewerScreen.classList.add("is-dock-hidden");
+    window.setTimeout(() => history.back(), 260);
     return;
   }
   goHome(false);
@@ -567,6 +705,7 @@ function openExperience(experienceId, updateHash = true) {
 function openProject(projectId, updateHash = true) {
   const project = currentExperience()?.projects.find((item) => item.id === projectId);
   if (!project || project.disabled) return;
+  clearViewerExit();
   state.viewerOrigin = state.screen === "projects" ? "projects" : "home";
   state.projectId = projectId;
   state.slideIndex = 0;
@@ -574,6 +713,12 @@ function openProject(projectId, updateHash = true) {
   updateViewerBackLabel();
   setActiveScreen("viewer");
   sizeArtworkFrame();
+  if (!elements.viewerScreen.classList.contains("is-dock-hidden")) {
+    elements.viewerScreen.classList.add("is-dock-hidden");
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (state.screen === "viewer") elements.viewerScreen.classList.remove("is-dock-hidden");
+    }));
+  }
   if (updateHash) pushRoute(`#project/${state.experienceId}/${projectId}`);
 }
 
@@ -594,6 +739,7 @@ function startViewerEntry(card, project) {
   if (!(card instanceof Element)) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+  clearViewerExit();
   clearViewerEntry();
   const image = card.querySelector("img");
   const coverSource = image?.currentSrc || image?.src;
@@ -624,7 +770,7 @@ function startViewerEntry(card, project) {
   overlay.style.height = `${start.height}px`;
   document.body.appendChild(overlay);
   const viewerScreen = elements.screens.find((screen) => screen.dataset.screen === "viewer");
-  viewerScreen?.classList.add("is-scene-entering");
+  viewerScreen?.classList.add("is-scene-entering", "is-dock-hidden");
   viewerEntry = { overlay, animation: null, screen: viewerScreen, pageImage: page };
 
   // swap the card cover for the first page early, while the layer is still
@@ -657,7 +803,7 @@ function runViewerEntry() {
       if (!overlay.isConnected) return;
       const handoff = () => {
         overlay.remove();
-        entry.screen?.classList.remove("is-scene-entering");
+        entry.screen?.classList.remove("is-scene-entering", "is-dock-hidden");
         if (viewerEntry === entry) viewerEntry = null;
       };
       const page = entry.pageImage;
@@ -733,11 +879,13 @@ document.addEventListener("click", (event) => {
   const thumbnailTrigger = event.target.closest("[data-slide-index]");
   const viewerBack = event.target.closest("[data-viewer-back]");
   const fullscreenTrigger = event.target.closest("[data-fullscreen-toggle]");
+  const otherProjectTrigger = event.target.closest("[data-other-project]");
 
   if (homeTrigger) goHome();
   else if (homeProjectTrigger) openHomeProject(homeProjectTrigger.dataset.homeExperience, homeProjectTrigger.dataset.homeProject, homeProjectTrigger);
   else if (projectTrigger) openProject(projectTrigger.dataset.project);
   else if (thumbnailTrigger) showSlide(Number(thumbnailTrigger.dataset.slideIndex));
+  else if (otherProjectTrigger) openOtherProject(otherProjectTrigger.dataset.otherExperience, otherProjectTrigger.dataset.otherProject);
   else if (fullscreenTrigger) toggleViewerFullscreen();
   else if (viewerBack) leaveViewer();
 });
@@ -782,7 +930,7 @@ let viewerWheelTimer = 0;
 viewerElement.addEventListener("wheel", (event) => {
   if (state.screen !== "viewer") return;
   if (event.ctrlKey || event.metaKey) return;
-  if (event.target.closest(".thumbnail-rail")) return;
+  if (event.target.closest(".thumbnail-rail") || event.target.closest(".other-projects")) return;
   event.preventDefault();
   const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * window.innerHeight : event.deltaY;
   viewerWheelDelta += delta;

@@ -258,6 +258,38 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-screen.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 90; padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
 .viewer-screen.is-fullscreen .fullscreen-toggle { top: 20px; right: 20px; width: 40px; height: 40px; background: rgba(18, 20, 23, .72); }
 
+/* Thumbnail rail slides in/out from its own edge */
+.thumbnail-dock { transition: transform .55s cubic-bezier(.22, 1, .36, 1), opacity .4s ease; }
+.viewer-screen.is-dock-hidden .thumbnail-dock { transform: translateX(105%); opacity: 0; }
+.viewer-screen.is-scene-shrinking .viewer-stage { opacity: 0; }
+.viewer-screen.is-scene-shrinking .thumbnail-dock { transform: translateX(105%); opacity: 0; }
+.home-screen.is-scene-revealing { opacity: 1; transform: none; filter: none; transition: none; }
+.viewer-entry.is-remorphing .viewer-entry-cover { opacity: 1; }
+.viewer-entry.is-remorphing .viewer-entry-page { opacity: 0; }
+.viewer-entry.is-fading { opacity: 0; transition: opacity .2s linear; }
+
+/* Other projects on the last page */
+.other-projects { position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; padding: clamp(14px, 2.2vw, 24px) clamp(14px, 2.2vw, 30px) clamp(12px, 1.8vw, 20px); border-top: 1px solid rgba(255, 255, 255, .08); background: rgba(10, 12, 16, .92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 -24px 60px rgba(0, 0, 0, .35); opacity: 0; transform: translateY(100%); pointer-events: none; transition: transform .55s cubic-bezier(.22, 1, .36, 1), opacity .35s ease; }
+.viewer-screen.is-last-slide .other-projects { opacity: 1; transform: none; pointer-events: auto; }
+.other-projects p { margin: 0 0 10px; color: #8a929e; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
+.other-projects-rail { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.other-projects-rail::-webkit-scrollbar { display: none; }
+.other-project { flex: 0 0 auto; width: clamp(120px, 14vw, 210px); padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.other-project img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; opacity: .6; filter: brightness(.85); transition: opacity .25s, transform .3s; }
+.other-project:hover img, .other-project:focus-visible img { opacity: 1; }
+.other-project b { display: block; margin-top: 7px; overflow: hidden; color: #d6dade; font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.other-project em { display: block; margin-top: 2px; overflow: hidden; color: #7d8794; font-size: 8px; font-style: normal; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-screen.is-fullscreen .other-projects { display: none; }
+
+@media (max-aspect-ratio: 1/1) {
+  .viewer-screen.is-dock-hidden .thumbnail-dock { transform: translateY(105%); }
+  .viewer-screen.is-scene-shrinking .thumbnail-dock { transform: translateY(105%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumbnail-dock, .other-projects { transition: none; }
+}
+
 .artwork-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; opacity: 1; }
 .artwork-frame [data-main-artwork] { z-index: 1; }
 .artwork-ghost { z-index: 2; visibility: hidden; }
