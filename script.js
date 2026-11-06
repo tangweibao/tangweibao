@@ -142,9 +142,14 @@ const currentExperience = () => experiences[state.experienceId];
 function updateRailMask() {
   const rail = elements.thumbnailRail;
   if (!rail.offsetHeight) return;
-  const max = rail.scrollHeight - rail.clientHeight;
-  rail.classList.toggle("is-at-top", rail.scrollTop <= 2);
-  rail.classList.toggle("is-at-bottom", rail.scrollTop >= max - 2);
+  // Portrait screens use a horizontal strip at the bottom of the viewer;
+  // wide screens keep the vertical rail on the right.
+  const horizontal = getComputedStyle(rail).flexDirection === "row";
+  const max = horizontal ? rail.scrollWidth - rail.clientWidth : rail.scrollHeight - rail.clientHeight;
+  const position = horizontal ? rail.scrollLeft : rail.scrollTop;
+  rail.classList.toggle("is-no-scroll", max <= 2);
+  rail.classList.toggle("is-at-top", max > 2 && position <= 2);
+  rail.classList.toggle("is-at-bottom", max > 2 && position >= max - 2);
 }
 
 elements.thumbnailRail.addEventListener("scroll", updateRailMask, { passive: true });
@@ -311,7 +316,7 @@ function showSlide(index, scrollThumbnail = true) {
   });
 
   const activeThumbnail = thumbnails[state.slideIndex];
-  if (scrollThumbnail && activeThumbnail) activeThumbnail.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  if (scrollThumbnail && activeThumbnail) activeThumbnail.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
   if (document.activeElement?.closest(".thumbnail-rail") && activeThumbnail) activeThumbnail.focus({ preventScroll: true });
 
   [-1, 1].forEach((offset) => {
@@ -677,7 +682,14 @@ function scheduleStreamMeasure(delay = 0) {
   }, delay);
 }
 
-window.addEventListener("resize", () => { scheduleStreamMeasure(120); updateRailMask(); });
+window.addEventListener("resize", () => {
+  scheduleStreamMeasure(120);
+  updateRailMask();
+  if (state.screen === "viewer") {
+    const current = elements.thumbnailRail.querySelector(".thumbnail.is-current");
+    if (current) current.scrollIntoView({ block: "center", inline: "center" });
+  }
+});
 
 renderTimeline();
 runStream();
