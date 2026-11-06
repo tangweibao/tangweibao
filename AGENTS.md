@@ -9,6 +9,7 @@
 - 数据驱动：所有经历、项目、封面、图标都在 `script.js` 顶部的 `experiences` 对象里维护。
 - 本地预览：`node ../.qa/serve.mjs . 8099`（或 `python3 -m http.server 8099`），打开 http://127.0.0.1:8099 。
 - 三个屏幕：`home`（首页 + 横向作品流）、`projects`（经历下的项目导航）、`viewer`（作品翻页浏览）。
+- 部署：GitHub Pages 通过 `.github/workflows/pages.yml` 以 Actions 方式整站发布（`build_type=workflow`）；仓库已改名为 `tangweibao/tangyubao`，线上地址 https://tangweibao.github.io/tangyubao/ 。
 
 ## 2. 文件职责
 
@@ -106,3 +107,4 @@
 - **高度修正**：`.site-header` 改为 `height: var(--header-h)` 并统一桌面 `--header-h: 70px`；此前导航栏固定 70、内容按 76 起算，移动端/矮窗口会出现内容被导航栏压住 6px 的问题，现已对齐（预览大图顶部不再被裁）。
 - **无障碍**：返回按钮增加动态 `aria-label`（手机端隐藏可见文字时仍可被读屏正确识别）。
 - **验证**：8 个基准视口（1920×1080、1440×900、1280×800、1024×768、768×1024、390×844、320×568、844×390）× 首页/项目/预览三屏：无 JS 报错、无失败请求、卡片不裁切；交互验证通过（首页→预览→滚轮/缩略图翻页→返回首页、项目页→预览→返回项目、深链打开→Esc 回首页、预览页打开联系名片）。
+- **部署**：仓库改名为 `tangweibao/tangyubao` 后旧版 Pages（legacy/Jekyll）构建连续超时失败，改为 `.github/workflows/pages.yml` 走 Actions 整站发布（`build_type=workflow`），线上地址变为 https://tangweibao.github.io/tangyubao/ 。
