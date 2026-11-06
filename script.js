@@ -317,7 +317,9 @@ function sizeArtworkFrame() {
   if (!stage || !frame) return;
   const style = window.getComputedStyle(stage);
   const availableWidth = stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  const availableHeight = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  const toolbar = elements.fullscreenToggle?.closest(".artwork-toolbar");
+  const toolbarHeight = toolbar ? toolbar.offsetHeight + 16 : 0;
+  const availableHeight = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - toolbarHeight;
   if (availableWidth <= 0 || availableHeight <= 0) return;
   const artwork = elements.artwork;
   const ratio = artwork.naturalWidth && artwork.naturalHeight ? artwork.naturalWidth / artwork.naturalHeight : 16 / 9;
@@ -768,6 +770,7 @@ function startViewerExit() {
   overlay.style.borderRadius = "0px";
   document.body.appendChild(overlay);
 
+  card.classList.add("is-returning");
   elements.viewerScreen.classList.add("is-scene-shrinking", "is-dock-hidden");
   elements.homeScreen.classList.add("is-scene-revealing");
   const entry = { overlay, animation: null };
@@ -777,13 +780,19 @@ function startViewerExit() {
 
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     if (!overlay.isConnected) return;
-    // freeze the card's hover transition so the measured target is its final
-    // position; otherwise the card keeps lifting while the clone shrinks and
-    // snaps up by ~6px when the overlay is removed
-    card.style.transition = "none";
-    void card.offsetWidth;
-    const target = card.getBoundingClientRect();
-    const radius = window.getComputedStyle(card).borderRadius || "0px";
+    // target the card's default (non-hover) rectangle; the .is-returning class
+    // has already released any hover lift with the normal 0.7s transition, so
+    // the clone lands where the card will settle (no snap on handoff)
+    const computed = window.getComputedStyle(card);
+    const matrix = computed.transform === "none" ? new DOMMatrix() : new DOMMatrixReadOnly(computed.transform);
+    const rect = card.getBoundingClientRect();
+    const target = {
+      left: rect.left - (matrix.m41 || 0),
+      top: rect.top - (matrix.m42 || 0),
+      width: rect.width,
+      height: rect.height
+    };
+    const radius = computed.borderRadius || "0px";
     const animation = overlay.animate([
       { left: `${frame.left}px`, top: `${frame.top}px`, width: `${frame.width}px`, height: `${frame.height}px`, borderRadius: "0px" },
       { left: `${target.left}px`, top: `${target.top}px`, width: `${target.width}px`, height: `${target.height}px`, borderRadius: radius }
@@ -797,7 +806,7 @@ function startViewerExit() {
         overlay.classList.add("is-fading");
         window.setTimeout(() => {
           overlay.remove();
-          card.style.transition = "";
+          card.classList.remove("is-returning");
           elements.homeScreen.classList.remove("is-scene-revealing");
           elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
           if (viewerExit === entry) viewerExit = null;
