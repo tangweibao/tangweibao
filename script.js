@@ -777,6 +777,11 @@ function startViewerExit() {
 
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     if (!overlay.isConnected) return;
+    // freeze the card's hover transition so the measured target is its final
+    // position; otherwise the card keeps lifting while the clone shrinks and
+    // snaps up by ~6px when the overlay is removed
+    card.style.transition = "none";
+    void card.offsetWidth;
     const target = card.getBoundingClientRect();
     const radius = window.getComputedStyle(card).borderRadius || "0px";
     const animation = overlay.animate([
@@ -792,6 +797,7 @@ function startViewerExit() {
         overlay.classList.add("is-fading");
         window.setTimeout(() => {
           overlay.remove();
+          card.style.transition = "";
           elements.homeScreen.classList.remove("is-scene-revealing");
           elements.viewerScreen.classList.remove("is-scene-shrinking", "is-dock-hidden");
           if (viewerExit === entry) viewerExit = null;
@@ -1208,6 +1214,16 @@ elements.streamShell.addEventListener("click", (event) => {
 }, true);
 
 elements.streamShell.addEventListener("dragstart", (event) => event.preventDefault());
+
+// The stream cards use a one-off entrance animation; when the home screen is
+// hidden and shown again the CSS animation would restart and make the card
+// drift ~36px while the reverse transition is running. Clear it after the
+// first play so returning home never replays it.
+elements.timeline.addEventListener("animationend", (event) => {
+  if (event.animationName === "stream-card-in" && event.target instanceof Element) {
+    event.target.style.animation = "none";
+  }
+});
 
 elements.timeline.addEventListener("focusin", (event) => {
   const card = event.target.closest(".stream-project");

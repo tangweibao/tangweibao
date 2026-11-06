@@ -243,7 +243,7 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-stage { position: relative; grid-column: 1; grid-row: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; overflow: hidden; padding: 18px clamp(16px, 2.2vw, 34px); }
 .artwork-frame { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border-radius: 5px; background: #151b22; box-shadow: 0 20px 55px rgba(0, 0, 0, .28); touch-action: none; }
 /* Fullscreen viewing */
-.fullscreen-toggle { position: absolute; z-index: 5; top: 14px; right: 14px; display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px 0 11px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #dfe4ea; background: rgba(12, 13, 15, .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font: inherit; font-size: 11px; letter-spacing: .04em; white-space: nowrap; cursor: pointer; transition: background .2s, border-color .2s, opacity .35s ease, transform .35s var(--ease); }
+.fullscreen-toggle { position: absolute; z-index: 5; top: 16px; right: 16px; display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px 0 11px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #dfe4ea; background: rgba(12, 13, 15, .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font: inherit; font-size: 11px; letter-spacing: .04em; white-space: nowrap; cursor: pointer; transition: background .2s, border-color .2s, opacity .35s ease, transform .35s var(--ease); }
 .fullscreen-toggle:hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .42); }
 .fullscreen-toggle svg { flex: 0 0 auto; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .fullscreen-toggle .icon-collapse { display: none; }
@@ -256,7 +256,6 @@ body[data-screen="viewer"] .site-header { grid-template-columns: auto minmax(0, 
 .viewer-screen.is-fullscreen .viewer-stage { padding: 0; }
 .viewer-screen:fullscreen { padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
 .viewer-screen.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 90; padding-top: 0; grid-template-columns: minmax(0, 1fr); background: #111214; }
-.viewer-screen.is-fullscreen .fullscreen-toggle { top: 20px; right: 20px; height: 38px; padding: 0 15px 0 13px; background: rgba(18, 20, 23, .72); }
 .viewer-screen.is-fullscreen.is-ui-idle .fullscreen-toggle { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 
 /* Thumbnail rail slides in/out from its own edge */
