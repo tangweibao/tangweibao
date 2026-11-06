@@ -132,6 +132,7 @@ const elements = {
   loader: document.querySelector("[data-image-loader]"),
   thumbnailRail: document.querySelector("[data-thumbnail-rail]"),
   artworkFrame: document.querySelector("[data-artwork-frame]"),
+  viewerStage: document.querySelector("[data-viewer-stage]"),
   streamShell: document.querySelector("[data-stream-shell]"),
   streamProgress: document.querySelector("[data-stream-progress]"),
   viewerBackLabel: document.querySelector("[data-viewer-back-label]")
@@ -153,6 +154,29 @@ function updateRailMask() {
 }
 
 elements.thumbnailRail.addEventListener("scroll", updateRailMask, { passive: true });
+
+/* The artwork frame hugs the artwork instead of the whole stage, so the
+   image never letterboxes inside its own container and the click transition
+   can hand off to an identical rectangle. */
+function sizeArtworkFrame() {
+  const stage = elements.viewerStage;
+  const frame = elements.artworkFrame;
+  if (!stage || !frame) return;
+  const style = window.getComputedStyle(stage);
+  const availableWidth = stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const availableHeight = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  if (availableWidth <= 0 || availableHeight <= 0) return;
+  const artwork = elements.artwork;
+  const ratio = artwork.naturalWidth && artwork.naturalHeight ? artwork.naturalWidth / artwork.naturalHeight : 16 / 9;
+  let width = availableWidth;
+  let height = width / ratio;
+  if (height > availableHeight) {
+    height = availableHeight;
+    width = height * ratio;
+  }
+  frame.style.width = `${Math.round(width)}px`;
+  frame.style.height = `${Math.round(height)}px`;
+}
 
 const contactToggle = document.querySelector("[data-contact-toggle]");
 const contactCard = document.querySelector("[data-contact-card]");
@@ -294,6 +318,7 @@ function showSlide(index, scrollThumbnail = true) {
   const onLoaded = () => {
     elements.artwork.classList.remove("is-loading");
     elements.loader.classList.remove("is-active");
+    sizeArtworkFrame();
   };
   elements.artwork.onload = onLoaded;
   elements.artwork.onerror = onLoaded;
@@ -406,6 +431,7 @@ function openProject(projectId, updateHash = true) {
   renderViewer();
   updateViewerBackLabel();
   setActiveScreen("viewer");
+  sizeArtworkFrame();
   if (updateHash) pushRoute(`#project/${state.experienceId}/${projectId}`);
 }
 
@@ -441,8 +467,17 @@ function startViewerEntry(card, project) {
   const page = document.createElement("img");
   page.className = "viewer-entry-page";
   page.alt = "";
-  if (pageSource) page.src = pageSource;
+  const thumbSource = project?.slides?.[0]?.thumb;
+  if (thumbSource) page.src = thumbSource;
+  else if (pageSource) page.src = pageSource;
   overlay.append(cover, page);
+  if (pageSource) {
+    const fullPage = new Image();
+    fullPage.src = pageSource;
+    fullPage.onload = () => {
+      if (overlay.isConnected) page.src = pageSource;
+    };
+  }
   overlay.style.left = `${start.left}px`;
   overlay.style.top = `${start.top}px`;
   overlay.style.width = `${start.width}px`;
@@ -450,7 +485,7 @@ function startViewerEntry(card, project) {
   document.body.appendChild(overlay);
   const viewerScreen = elements.screens.find((screen) => screen.dataset.screen === "viewer");
   viewerScreen?.classList.add("is-scene-entering");
-  viewerEntry = { overlay, animation: null, screen: viewerScreen };
+  viewerEntry = { overlay, animation: null, screen: viewerScreen, pageImage: page };
 }
 
 function runViewerEntry() {
@@ -460,6 +495,7 @@ function runViewerEntry() {
   const start = overlay.style;
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     if (!overlay.isConnected || viewerEntry !== entry) return;
+    sizeArtworkFrame();
     const end = elements.artworkFrame.getBoundingClientRect();
     const animation = overlay.animate([
       { left: start.left, top: start.top, width: start.width, height: start.height, borderRadius: "20px" },
@@ -468,27 +504,36 @@ function runViewerEntry() {
     entry.animation = animation;
     animation.onfinish = () => {
       if (!overlay.isConnected) return;
-      // dissolve the card cover into the first artwork page, then hand off
-      overlay.classList.add("is-revealing");
       const handoff = () => {
         overlay.remove();
         entry.screen?.classList.remove("is-scene-entering");
         if (viewerEntry === entry) viewerEntry = null;
       };
-      const artwork = elements.artwork;
-      if (artwork.complete && artwork.naturalWidth) {
-        window.setTimeout(handoff, 250);
-        return;
-      }
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        window.setTimeout(handoff, 250);
+      const reveal = () => {
+        if (!overlay.isConnected) return;
+        // dissolve the card cover into the first artwork page, then hand off
+        overlay.classList.add("is-revealing");
+        const artwork = elements.artwork;
+        const showFullPage = () => {
+          if (entry.pageImage && artwork.currentSrc) entry.pageImage.src = artwork.currentSrc;
+        };
+        if (artwork.complete && artwork.naturalWidth) {
+          showFullPage();
+          window.setTimeout(handoff, 150);
+          return;
+        }
+        let settled = false;
+        const finish = (loaded) => {
+          if (settled) return;
+          settled = true;
+          if (loaded) showFullPage();
+          window.setTimeout(handoff, loaded ? 150 : 50);
+        };
+        artwork.addEventListener("load", () => finish(true), { once: true });
+        artwork.addEventListener("error", () => finish(false), { once: true });
+        window.setTimeout(() => finish(false), 6000);
       };
-      artwork.addEventListener("load", finish, { once: true });
-      artwork.addEventListener("error", finish, { once: true });
-      window.setTimeout(finish, 900);
+      reveal();
     };
   }));
 }
@@ -772,6 +817,7 @@ function scheduleStreamMeasure(delay = 0) {
 window.addEventListener("resize", () => {
   scheduleStreamMeasure(120);
   updateRailMask();
+  sizeArtworkFrame();
   if (state.screen === "viewer") {
     const current = elements.thumbnailRail.querySelector(".thumbnail.is-current");
     if (current) current.scrollIntoView({ block: "center", inline: "center" });
